@@ -7,7 +7,6 @@
 
 import glob
 import os
-import runpy
 import sys
 import warnings
 from typing import List, Optional
@@ -43,15 +42,14 @@ def get_extensions():
         warnings.warn(msg)
         return []
 
-    this_dir = os.path.dirname(os.path.abspath(__file__))
-    extensions_dir = os.path.join(this_dir, "pytorch3d", "csrc")
+    extensions_dir = os.path.join("pytorch3d", "csrc")
     sources = glob.glob(os.path.join(extensions_dir, "**", "*.cpp"), recursive=True)
     source_cuda = glob.glob(os.path.join(extensions_dir, "**", "*.cu"), recursive=True)
     extension = CppExtension
 
     extra_compile_args = {"cxx": ["-std=c++17"]}
     define_macros = []
-    include_dirs = [extensions_dir]
+    include_dirs = [os.path.join(os.path.dirname(os.path.abspath(__file__)), extensions_dir)]
 
     force_cuda = os.getenv("FORCE_CUDA", "0") == "1"
     force_no_cuda = os.getenv("PYTORCH3D_FORCE_NO_CUDA", "0") == "1"
@@ -111,8 +109,6 @@ def get_extensions():
 
         extra_compile_args["nvcc"] = nvcc_args
 
-    sources = [os.path.join(extensions_dir, s) for s in sources]
-
     ext_modules = [
         extension(
             "pytorch3d._C",
@@ -124,10 +120,6 @@ def get_extensions():
     ]
 
     return ext_modules
-
-
-# Retrieve __version__ from the package.
-__version__ = runpy.run_path("pytorch3d/__init__.py")["__version__"]
 
 
 if os.getenv("PYTORCH3D_NO_NINJA", "0") == "1":
@@ -142,40 +134,12 @@ else:
 trainer = "pytorch3d.implicitron_trainer"
 
 setup(
-    name="pytorch3d",
-    version=__version__,
-    author="FAIR",
     url="https://github.com/facebookresearch/pytorch3d",
-    description="PyTorch3D is FAIR's library of reusable components "
-    "for deep Learning with 3D data.",
     packages=find_packages(
         exclude=("configs", "tests", "tests.*", "docs.*", "projects.*")
     )
     + [trainer],
     package_dir={trainer: "projects/implicitron_trainer"},
-    install_requires=["fvcore", "iopath"],
-    extras_require={
-        "all": ["matplotlib", "tqdm>4.29.0", "imageio", "ipywidgets"],
-        "dev": ["flake8", "usort"],
-        "implicitron": [
-            "hydra-core>=1.1",
-            "visdom",
-            "lpips",
-            "tqdm>4.29.0",
-            "matplotlib",
-            "accelerate",
-            "sqlalchemy>=2.0",
-        ],
-    },
-    entry_points={
-        "console_scripts": [
-            f"pytorch3d_implicitron_runner={trainer}.experiment:experiment",
-            f"pytorch3d_implicitron_visualizer={trainer}.visualize_reconstruction:main",
-        ]
-    },
     ext_modules=get_extensions(),
     cmdclass={"build_ext": BuildExtension},
-    package_data={
-        "": ["*.json"],
-    },
 )
